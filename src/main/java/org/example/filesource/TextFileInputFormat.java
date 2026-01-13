@@ -76,21 +76,21 @@ public class TextFileInputFormat extends SimpleStreamFormat<List<String>> {
 
     private final BufferedReader reader;
 
-    private boolean already_read;
+    private boolean alreadyRead;
 
     Reader(final BufferedReader reader) {
       this.reader = reader;
-      this.already_read = false;
+      this.alreadyRead = false;
     }
 
     @Nullable
     @Override
     public List<String> read() throws IOException {
-      if (already_read) {
+      if (alreadyRead) {
         return null; // End of file
       }
 
-      already_read = true;
+      alreadyRead = true;
       return reader.lines().toList();
     }
 
