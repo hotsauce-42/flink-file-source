@@ -13,7 +13,7 @@ public class Main {
     // System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "off");
 
     StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-    //env.setParallelism(1);
+    // env.setParallelism(1);
     env.enableCheckpointing(5000);
 
     Path dirToWatch = Path.fromLocalFile(new File("src/main/resources/testDirectory"));
