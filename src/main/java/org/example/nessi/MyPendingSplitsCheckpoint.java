@@ -1,16 +1,15 @@
 package org.example.nessi;
 
-import org.apache.flink.connector.file.src.FileSourceSplit;
-import org.apache.flink.connector.file.src.PendingSplitsCheckpointSerializer;
+import static org.apache.flink.util.Preconditions.checkNotNull;
 
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import javax.annotation.Nullable;
+import org.apache.flink.connector.file.src.FileSourceSplit;
+import org.apache.flink.connector.file.src.PendingSplitsCheckpointSerializer;
 
-import static org.apache.flink.util.Preconditions.checkNotNull;
-
-public class MyPendingSplitsCheckpoint <SplitT extends FileSourceSplit> {
+public class MyPendingSplitsCheckpoint<SplitT extends FileSourceSplit> {
 
   /** The splits in the checkpoint. */
   private final Collection<SplitT> splits;
@@ -26,8 +25,7 @@ public class MyPendingSplitsCheckpoint <SplitT extends FileSourceSplit> {
    * repeated serialization cost for the same checkpoint object. This field is used by {@link
    * PendingSplitsCheckpointSerializer}.
    */
-  @Nullable
-  byte[] serializedFormCache;
+  @Nullable byte[] serializedFormCache;
 
   protected MyPendingSplitsCheckpoint(
       Collection<SplitT> splits, long alreadyProcessedModificationTime) {

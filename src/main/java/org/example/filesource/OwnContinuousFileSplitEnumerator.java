@@ -1,29 +1,47 @@
-package org.example.nessi;
+package org.example.filesource; /*
+                                 * Licensed to the Apache Software Foundation (ASF) under one
+                                 * or more contributor license agreements.  See the NOTICE file
+                                 * distributed with this work for additional information
+                                 * regarding copyright ownership.  The ASF licenses this file
+                                 * to you under the Apache License, Version 2.0 (the
+                                 * "License"); you may not use this file except in compliance
+                                 * with the License.  You may obtain a copy of the License at
+                                 *
+                                 *     http://www.apache.org/licenses/LICENSE-2.0
+                                 *
+                                 * Unless required by applicable law or agreed to in writing, software
+                                 * distributed under the License is distributed on an "AS IS" BASIS,
+                                 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                                 * See the License for the specific language governing permissions and
+                                 * limitations under the License.
+                                 */
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.source.SourceEvent;
 import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.flink.api.connector.source.SupportsBatchSnapshot;
 import org.apache.flink.connector.file.src.FileSourceSplit;
-import org.apache.flink.connector.file.src.PendingSplitsCheckpoint;
 import org.apache.flink.connector.file.src.assigners.FileSplitAssigner;
 import org.apache.flink.connector.file.src.enumerate.FileEnumerator;
 import org.apache.flink.core.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class TimeBasedContinuousFileSplitEnumerator
-    implements SplitEnumerator<FileSourceSplit, PendingSplitsCheckpoint<FileSourceSplit>>,
+/** A continuously monitoring enumerator. */
+@Internal
+public class OwnContinuousFileSplitEnumerator
+    implements SplitEnumerator<FileSourceSplit, OwnPendingSplitsCheckpoint<FileSourceSplit>>,
         SupportsBatchSnapshot {
 
-  private static final Logger LOG =
-      LoggerFactory.getLogger(TimeBasedContinuousFileSplitEnumerator.class);
+  private static final Logger LOG = LoggerFactory.getLogger(OwnContinuousFileSplitEnumerator.class);
 
   private final SplitEnumeratorContext<FileSourceSplit> context;
 
@@ -31,9 +49,7 @@ public class TimeBasedContinuousFileSplitEnumerator
 
   private final FileEnumerator enumerator;
 
-  private final HashSet<Path> pathsAlreadyProcessed;
-
-  private long modificationTimeAlreadyProcessed;
+  private long lastProcessedModificationTime;
 
   private final LinkedHashMap<Integer, String> readersAwaitingSplit;
 
@@ -43,13 +59,12 @@ public class TimeBasedContinuousFileSplitEnumerator
 
   // ------------------------------------------------------------------------
 
-  public TimeBasedContinuousFileSplitEnumerator(
+  public OwnContinuousFileSplitEnumerator(
       SplitEnumeratorContext<FileSourceSplit> context,
       FileEnumerator enumerator,
       FileSplitAssigner splitAssigner,
       Path[] paths,
-      long modificationTimeAlreadyProcessed,
-      Collection<Path> alreadyDiscoveredPaths,
+      long lastProcessedModificationTime,
       long discoveryInterval) {
 
     checkArgument(discoveryInterval > 0L);
@@ -58,8 +73,7 @@ public class TimeBasedContinuousFileSplitEnumerator
     this.splitAssigner = checkNotNull(splitAssigner);
     this.paths = paths;
     this.discoveryInterval = discoveryInterval;
-    this.pathsAlreadyProcessed = new HashSet<>(alreadyDiscoveredPaths);
-    this.modificationTimeAlreadyProcessed = modificationTimeAlreadyProcessed;
+    this.lastProcessedModificationTime = lastProcessedModificationTime;
     this.readersAwaitingSplit = new LinkedHashMap<>();
   }
 
@@ -100,11 +114,11 @@ public class TimeBasedContinuousFileSplitEnumerator
   }
 
   @Override
-  public PendingSplitsCheckpoint<FileSourceSplit> snapshotState(long checkpointId)
+  public OwnPendingSplitsCheckpoint<FileSourceSplit> snapshotState(long checkpointId)
       throws Exception {
-    final PendingSplitsCheckpoint<FileSourceSplit> checkpoint =
-        PendingSplitsCheckpoint.fromCollectionSnapshot(
-            splitAssigner.remainingSplits(), pathsAlreadyProcessed);
+    final OwnPendingSplitsCheckpoint<FileSourceSplit> checkpoint =
+        OwnPendingSplitsCheckpoint.fromCollectionSnapshot(
+            splitAssigner.remainingSplits(), lastProcessedModificationTime);
 
     LOG.debug("Source Checkpoint is {}", checkpoint);
     return checkpoint;
@@ -120,14 +134,20 @@ public class TimeBasedContinuousFileSplitEnumerator
 
     final Collection<FileSourceSplit> newSplits =
         splits.stream()
-            .filter(split -> split.fileModificationTime() > modificationTimeAlreadyProcessed)
-            .toList();
+            .filter((split) -> split.fileModificationTime() > lastProcessedModificationTime)
+            .collect(Collectors.toList());
 
     for (FileSourceSplit split : newSplits) {
-      if (split.fileModificationTime() > modificationTimeAlreadyProcessed) {
-        modificationTimeAlreadyProcessed = split.fileModificationTime();
+      if (split.fileModificationTime() > lastProcessedModificationTime) {
+        lastProcessedModificationTime = split.fileModificationTime();
       }
     }
+
+    //    lastProcessedModificationTime =
+    //        Long.max(
+    //            lastProcessedModificationTime,
+    //
+    // newSplits.stream().mapToLong(FileSourceSplit::fileModificationTime).max().orElse(0));
 
     splitAssigner.addSplits(newSplits);
 

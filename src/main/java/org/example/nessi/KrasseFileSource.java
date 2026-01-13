@@ -1,5 +1,11 @@
 package org.example.nessi;
 
+import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+import java.io.IOException;
+import java.util.Collection;
+import javax.annotation.Nullable;
 import org.apache.flink.api.connector.source.DynamicParallelismInference;
 import org.apache.flink.connector.file.src.*;
 import org.apache.flink.connector.file.src.assigners.FileSplitAssigner;
@@ -14,13 +20,6 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.util.FlinkRuntimeException;
 
-import javax.annotation.Nullable;
-import java.io.IOException;
-import java.util.Collection;
-
-import static org.apache.flink.util.Preconditions.checkArgument;
-import static org.apache.flink.util.Preconditions.checkNotNull;
-
 public class KrasseFileSource<T> extends OwnAbstractFileSource<T, FileSourceSplit>
     implements DynamicParallelismInference {
 
@@ -31,19 +30,18 @@ public class KrasseFileSource<T> extends OwnAbstractFileSource<T, FileSourceSpli
       LocalityAwareSplitAssigner::new;
 
   /**
-   * The default file enumerator used for splittable formats. The enumerator recursively
-   * enumerates files, split files that consist of multiple distributed storage blocks into
-   * multiple splits, and filters hidden files (files starting with '.' or '_'). Files with
-   * suffixes of common compression formats (for example '.gzip', '.bz2', '.xy', '.zip', ...) will
-   * not be split.
+   * The default file enumerator used for splittable formats. The enumerator recursively enumerates
+   * files, split files that consist of multiple distributed storage blocks into multiple splits,
+   * and filters hidden files (files starting with '.' or '_'). Files with suffixes of common
+   * compression formats (for example '.gzip', '.bz2', '.xy', '.zip', ...) will not be split.
    */
   public static final FileEnumerator.Provider DEFAULT_SPLITTABLE_FILE_ENUMERATOR =
       BlockSplittingRecursiveEnumerator::new;
 
   /**
    * The default file enumerator used for non-splittable formats. The enumerator recursively
-   * enumerates files, creates one split for the file, and filters hidden files (files starting
-   * with '.' or '_').
+   * enumerates files, creates one split for the file, and filters hidden files (files starting with
+   * '.' or '_').
    */
   public static final FileEnumerator.Provider DEFAULT_NON_SPLITTABLE_FILE_ENUMERATOR =
       NonSplittingRecursiveEnumerator::new;
@@ -57,12 +55,7 @@ public class KrasseFileSource<T> extends OwnAbstractFileSource<T, FileSourceSpli
       final BulkFormat<T, FileSourceSplit> readerFormat,
       @Nullable final ContinuousEnumerationSettings continuousEnumerationSettings) {
 
-    super(
-        inputPaths,
-        fileEnumerator,
-        splitAssigner,
-        readerFormat,
-        continuousEnumerationSettings);
+    super(inputPaths, fileEnumerator, splitAssigner, readerFormat, continuousEnumerationSettings);
   }
 
   @Override
@@ -78,14 +71,12 @@ public class KrasseFileSource<T> extends OwnAbstractFileSource<T, FileSourceSpli
     try {
       splits =
           fileEnumerator.enumerateSplits(
-              inputPaths,
-              dynamicParallelismContext.getParallelismInferenceUpperBound());
+              inputPaths, dynamicParallelismContext.getParallelismInferenceUpperBound());
     } catch (IOException e) {
       throw new FlinkRuntimeException("Could not enumerate file splits", e);
     }
 
-    return Math.min(
-        splits.size(), dynamicParallelismContext.getParallelismInferenceUpperBound());
+    return Math.min(splits.size(), dynamicParallelismContext.getParallelismInferenceUpperBound());
   }
 
   // ------------------------------------------------------------------------
@@ -93,12 +84,12 @@ public class KrasseFileSource<T> extends OwnAbstractFileSource<T, FileSourceSpli
   // ------------------------------------------------------------------------
 
   /**
-   * Builds a new {@code KrasseFileSource} using a {@link StreamFormat} to read record-by-record from a
-   * file stream.
+   * Builds a new {@code KrasseFileSource} using a {@link StreamFormat} to read record-by-record
+   * from a file stream.
    *
-   * <p>When possible, stream-based formats are generally easier (preferable) to file-based
-   * formats, because they support better default behavior around I/O batching or progress
-   * tracking (checkpoints).
+   * <p>When possible, stream-based formats are generally easier (preferable) to file-based formats,
+   * because they support better default behavior around I/O batching or progress tracking
+   * (checkpoints).
    *
    * <p>Stream formats also automatically de-compress files based on the file extension. This
    * supports files ending in ".deflate" (Deflate), ".xz" (XZ), ".bz2" (BZip2), ".gz", ".gzip"
@@ -110,8 +101,8 @@ public class KrasseFileSource<T> extends OwnAbstractFileSource<T, FileSourceSpli
   }
 
   /**
-   * Builds a new {@code KrasseFileSource} using a {@link BulkFormat} to read batches of records from
-   * files.
+   * Builds a new {@code KrasseFileSource} using a {@link BulkFormat} to read batches of records
+   * from files.
    *
    * <p>Examples for bulk readers are compressed and vectorized formats such as ORC or Parquet.
    */
@@ -154,12 +145,7 @@ public class KrasseFileSource<T> extends OwnAbstractFileSource<T, FileSourceSpli
     @Override
     public KrasseFileSource<T> build() {
       return new KrasseFileSource<>(
-          inputPaths,
-          fileEnumerator,
-          splitAssigner,
-          readerFormat,
-          continuousSourceSettings);
+          inputPaths, fileEnumerator, splitAssigner, readerFormat, continuousSourceSettings);
     }
   }
-
 }
