@@ -10,7 +10,7 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
 public class Main {
   public static void main(String[] args) throws Exception {
-    System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "off");
+    // System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "off");
 
     StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     env.setParallelism(1);
@@ -19,7 +19,7 @@ public class Main {
     Path dirToWatch = Path.fromLocalFile(new File("src/main/resources/testDirectory"));
 
     final OwnFileSource<List<String>> source =
-        OwnFileSource.forRecordStreamFormat(new TextFileInputFormat(), dirToWatch)
+        OwnFileSource.forRecordStreamFormat(new ListStringInputFormat(), dirToWatch)
             .monitorContinuously(Duration.ofSeconds(1))
             .build();
 

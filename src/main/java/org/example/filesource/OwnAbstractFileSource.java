@@ -18,8 +18,6 @@ package org.example.filesource;
  * limitations under the License.
  */
 
-// package org.apache.flink.connector.file.src;
-
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -200,9 +198,8 @@ public abstract class OwnAbstractFileSource<T, SplitT extends FileSourceSplit>
 
     if (continuousEnumerationSettings == null) {
       // bounded case
-      // TODO
-      // return castGeneric(new StaticFileSplitEnumerator(fileSplitContext, splitAssigner));
-      return null;
+      throw new UnsupportedOperationException(
+          "The bounded case is not supported here. If you want to use a bounded file source, use flink's build in file source!");
     } else {
       // unbounded case
 

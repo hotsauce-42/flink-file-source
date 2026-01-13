@@ -23,7 +23,6 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.source.SourceEvent;
@@ -136,20 +135,14 @@ public class OwnContinuousFileSplitEnumerator
 
     final Collection<FileSourceSplit> newSplits =
         splits.stream()
-            .filter((split) -> split.fileModificationTime() > lastProcessedModificationTime)
-            .collect(Collectors.toList());
+            .filter(split -> split.fileModificationTime() > lastProcessedModificationTime)
+            .toList();
 
     for (FileSourceSplit split : newSplits) {
       if (split.fileModificationTime() > lastProcessedModificationTime) {
         lastProcessedModificationTime = split.fileModificationTime();
       }
     }
-
-    //    lastProcessedModificationTime =
-    //        Long.max(
-    //            lastProcessedModificationTime,
-    //
-    // newSplits.stream().mapToLong(FileSourceSplit::fileModificationTime).max().orElse(0));
 
     splitAssigner.addSplits(newSplits);
 
