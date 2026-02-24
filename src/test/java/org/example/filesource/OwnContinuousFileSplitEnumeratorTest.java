@@ -19,7 +19,6 @@
 package org.example.filesource;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
 import java.util.Collections;

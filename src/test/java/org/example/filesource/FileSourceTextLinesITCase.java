@@ -360,7 +360,7 @@ class FileSourceTextLinesITCase {
       new String[] {
         "text.2",
         "nested1/text.1",
-        "text.1",
+        "text.2",
         "text.3",
         "nested2/nested21/text",
         "nested1/text.2",
@@ -474,7 +474,7 @@ class FileSourceTextLinesITCase {
 
   private static void writeFileAtomically(final File file, final String[] lines)
       throws IOException {
-    writeFileAtomically(file, lines, (v) -> v);
+    writeFileAtomically(file, lines, v -> v);
   }
 
   private static void writeFileAtomically(
@@ -486,8 +486,7 @@ class FileSourceTextLinesITCase {
     // we don't use TMP_FOLDER.newFile() here because we don't want this to actually create a
     // file,
     // but just construct the file path
-    final File stagingFile =
-        new File(tmpDir.getParent().toFile(), ".tmp-" + UUID.randomUUID().toString());
+    final File stagingFile = new File(tmpDir.getParent().toFile(), ".tmp-" + UUID.randomUUID());
 
     try (final FileOutputStream fileOut = new FileOutputStream(stagingFile);
         final OutputStream out = streamEncoderFactory.apply(fileOut);
@@ -501,8 +500,13 @@ class FileSourceTextLinesITCase {
 
     final File parent = file.getParentFile();
     assertThat(parent.mkdirs() || parent.exists()).isTrue();
-
-    assertThat(stagingFile.renameTo(file)).isTrue();
+    if (file.exists()) {
+      // Delete the existing file so the staging file can replace it for the reread test with
+      // minimal code changes.
+      assertThat(file.delete()).isTrue();
+    }
+    boolean wasRenamingSuccessful = stagingFile.renameTo(file);
+    assertThat(wasRenamingSuccessful).isTrue();
   }
 
   // ------------------------------------------------------------------------
