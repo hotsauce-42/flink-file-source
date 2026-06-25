@@ -1,0 +1,100 @@
+image: maven:3.5.1-eclipse-temurin-17
+
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  MAVEN_CLI_OPTS: "-B -DskipTests=false"
+
+# Template job to avoid duplication
+.mvn_job_template:
+  script:
+    # Set artifact version according to scheme 1.0.0-${FLINK_VERSION}
+    - mvn versions:set -DnewVersion=1.0.0-${FLINK_VERSION}
+    # Build & run tests with the given Flink version (assuming a Maven property 'flink.version')
+    - mvn $MAVEN_CLI_OPTS clean verify -Dflink.version=${FLINK_VERSION}
+  artifacts:
+    paths:
+      - target
+    expire_in: 1 week
+
+build_flink_1_20_3:
+  stage: build
+  variables:
+    FLINK_VERSION: "1.20.3"
+  extends: .mvn_job_template
+
+build_flink_2_1_0:
+  stage: build
+  variables:
+    FLINK_VERSION: "2.1.0"
+  extends: .mvn_job_template
+
+build_flink_2_2_0:
+  stage: build
+  variables:
+    FLINK_VERSION: "2.2.0"
+  extends: .mvn_job_template
+
+test_flink_1_20_3:
+  stage: test
+  needs: ["build_flink_1_20_3"]
+  variables:
+    FLINK_VERSION: "1.20.3"
+  script:
+    - mvn $MAVEN_CLI_OPTS test -Dflink.version=${FLINK_VERSION}
+
+test_flink_2_1_0:
+  stage: test
+  needs: ["build_flink_2_1_0"]
+  variables:
+    FLINK_VERSION: "2.1.0"
+  script:
+    - mvn $MAVEN_CLI_OPTS test -Dflink.version=${FLINK_VERSION}
+
+test_flink_2_2_0:
+  stage: test
+  needs: ["build_flink_2_2_0"]
+  variables:
+    FLINK_VERSION: "2.2.0"
+  script:
+    - mvn $MAVEN_CLI_OPTS test -Dflink.version=${FLINK_VERSION}
+
+deploy_flink_1_20_3:
+  stage: deploy
+  needs: ["test_flink_1_20_3"]
+  variables:
+    FLINK_VERSION: "1.20.3"
+  script:
+    - mvn $MAVEN_CLI_OPTS deploy -Dflink.version=${FLINK_VERSION}
+  rules:
+      - if: $CI_COMMIT_BRANCH != "main"
+        when: manual
+  #only:
+   # - main
+
+deploy_flink_2_1_0:
+  stage: deploy
+  needs: ["test_flink_2_1_0"]
+  variables:
+    FLINK_VERSION: "2.1.0"
+  script:
+    - mvn $MAVEN_CLI_OPTS deploy -Dflink.version=${FLINK_VERSION}
+  rules:
+    - if: $CI_COMMIT_BRANCH != "main"
+      when: manual
+
+deploy_flink_2_2_0:
+  stage: deploy
+  needs: ["test_flink_2_2_0"]
+  variables:
+    FLINK_VERSION: "2.2.0"
+  script:
+    - mvn $MAVEN_CLI_OPTS deploy -Dflink.version=${FLINK_VERSION}
+  rules:
+    - if: $CI_COMMIT_BRANCH != "main"
+      when: manual
+  #only:
+   # - main
