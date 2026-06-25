@@ -40,6 +40,41 @@ Since it does not make sense to adapt all classes for `modification time` in the
 - `org.apache.flink.connector.file.src.FileSource`
 - `org.apache.flink.connector.file.src.PendingSplitsCheckpoint`
 - `org.apache.flink.connector.file.src.PendingSplitsCheckpointSerializer`
+- `org.apache.flink.connector.file.src.impl.StreamFormatAdapter` (see [optional S3 client](#optional-different-s3--minio-client) below)
+
+----
+
+## Optional different S3 / MinIO client
+
+By default the `OwnFileSource` resolves files through Flink's globally initialised `FileSystem`, which is configured once per cluster. Sometimes a single source needs to read files from a *different* S3 / MinIO than the cluster default. For that case the builder accepts optional, serializable connection settings:
+
+```java
+S3FileSystemSettings settings =
+    new S3FileSystemSettings(
+        "http://localhost:9000", // endpoint
+        "accessKey",
+        "secretKey",
+        "my-bucket");
+
+final OwnFileSource<List<String>> source =
+    OwnFileSource.forRecordStreamFormat(new ListStringInputFormat(), new Path("s3://my-bucket/dir"))
+        .monitorContinuously(Duration.ofSeconds(1))
+        .withFileSystem(settings) // <-- read through this endpoint instead of the global file system
+        .build();
+```
+
+### How it works
+The settings are serializable so they travel with the source to the JobManager (enumeration) and to every TaskManager (reading); the actual client is built lazily, once per JVM. When `withFileSystem(...)` is set, the source swaps two components:
+
+- [`OwnFileSystemEnumerator`](OwnFileSystemEnumerator.java) lists objects and their modification times through the configured endpoint instead of `path.getFileSystem()`. It is a thin subclass of Flink's `NonSplittingRecursiveEnumerator` and reuses its hidden-file filtering and split conversion, so the modification-time mechanism keeps working unchanged.
+- [`MinioStreamFormatAdapter`](MinioStreamFormatAdapter.java) opens the file content through the configured endpoint. It is a fork of Flink's `StreamFormatAdapter` where the only behavioural change is which `FileSystem` opens the stream.
+
+Both use [`MinioFileSystem`](MinioFileSystem.java), a small read-only Flink `FileSystem` backed by a `MinioClient` ([`MinioFileStatus`](MinioFileStatus.java), [`MinioInputStream`](MinioInputStream.java)), built from [`S3FileSystemSettings`](S3FileSystemSettings.java).
+
+### Limitations
+- Only supported together with `forRecordStreamFormat(...)` (the `forBulkFileFormat(...)` path is not adapted). Calling `withFileSystem(...)` on a bulk-format source fails fast at `build()`.
+- When `withFileSystem(...)` is **not** called, behaviour is unchanged and the global file system is used (fully backward compatible).
+- The checkpoint format is unchanged: the settings ride along in the serialized source, not in the checkpoint.
 
 ----
 

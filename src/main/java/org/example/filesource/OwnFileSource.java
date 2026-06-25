@@ -175,7 +175,11 @@ public final class OwnFileSource<T> extends OwnAbstractFileSource<T, FileSourceS
    */
   public static <T> FileSourceBuilder<T> forRecordStreamFormat(
       final StreamFormat<T> streamFormat, final Path... paths) {
-    return forBulkFileFormat(new StreamFormatAdapter<>(streamFormat), paths);
+    checkNotNull(streamFormat, "streamFormat");
+    checkNotNull(paths, "paths");
+    checkArgument(paths.length > 0, "paths must not be empty");
+
+    return new FileSourceBuilder<>(paths, new StreamFormatAdapter<>(streamFormat), streamFormat);
   }
 
   /**
@@ -190,7 +194,7 @@ public final class OwnFileSource<T> extends OwnAbstractFileSource<T, FileSourceS
     checkNotNull(paths, "paths");
     checkArgument(paths.length > 0, "paths must not be empty");
 
-    return new FileSourceBuilder<>(paths, bulkFormat);
+    return new FileSourceBuilder<>(paths, bulkFormat, null);
   }
 
   // ------------------------------------------------------------------------
@@ -210,7 +214,19 @@ public final class OwnFileSource<T> extends OwnAbstractFileSource<T, FileSourceS
   public static final class FileSourceBuilder<T>
       extends AbstractFileSourceBuilder<T, FileSourceSplit, FileSourceBuilder<T>> {
 
-    FileSourceBuilder(Path[] inputPaths, BulkFormat<T, FileSourceSplit> readerFormat) {
+    /**
+     * The raw stream format, kept around so that a {@link MinioStreamFormatAdapter} can be built
+     * when a custom file system is configured. Only set when the source was created via {@link
+     * OwnFileSource#forRecordStreamFormat(StreamFormat, Path...)}.
+     */
+    @Nullable private final StreamFormat<T> streamFormat;
+
+    @Nullable private S3FileSystemSettings fsSettings;
+
+    FileSourceBuilder(
+        Path[] inputPaths,
+        BulkFormat<T, FileSourceSplit> readerFormat,
+        @Nullable StreamFormat<T> streamFormat) {
       super(
           inputPaths,
           readerFormat,
@@ -218,12 +234,42 @@ public final class OwnFileSource<T> extends OwnAbstractFileSource<T, FileSourceS
               ? DEFAULT_SPLITTABLE_FILE_ENUMERATOR
               : DEFAULT_NON_SPLITTABLE_FILE_ENUMERATOR,
           DEFAULT_SPLIT_ASSIGNER);
+      this.streamFormat = streamFormat;
+    }
+
+    /**
+     * Reads files through a different, explicitly configured S3 / MinIO endpoint instead of the
+     * globally initialised file system.
+     *
+     * <p>This is useful when a single source needs to ingest files from another object store than
+     * the cluster default. When left unset, the source behaves exactly as before and uses the
+     * global file system.
+     *
+     * <p>Currently only supported in combination with {@link
+     * OwnFileSource#forRecordStreamFormat(StreamFormat, Path...)}.
+     */
+    public FileSourceBuilder<T> withFileSystem(S3FileSystemSettings fsSettings) {
+      this.fsSettings = checkNotNull(fsSettings, "fsSettings");
+      return this;
     }
 
     @Override
     public OwnFileSource<T> build() {
+      BulkFormat<T, FileSourceSplit> format = readerFormat;
+      FileEnumerator.Provider enumerator = fileEnumerator;
+
+      if (fsSettings != null) {
+        checkArgument(
+            streamFormat != null,
+            "withFileSystem(...) is currently only supported in combination with "
+                + "forRecordStreamFormat(...).");
+        final S3FileSystemSettings settings = fsSettings;
+        format = new MinioStreamFormatAdapter<>(streamFormat, settings);
+        enumerator = () -> new OwnFileSystemEnumerator(settings);
+      }
+
       return new OwnFileSource<>(
-          inputPaths, fileEnumerator, splitAssigner, readerFormat, continuousSourceSettings);
+          inputPaths, enumerator, splitAssigner, format, continuousSourceSettings);
     }
   }
 }
