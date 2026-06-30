@@ -30,7 +30,7 @@ import org.apache.flink.core.fs.FileSystem;
 /**
  * Serializable connection settings for an alternative S3 / MinIO endpoint.
  *
- * <p>By default the {@link OwnFileSource} resolves files through Flink's globally initialised
+ * <p>By default, the {@link OwnFileSource} resolves files through Flink's globally initialised
  * {@link FileSystem} (configured once per cluster). Passing an instance of this class to {@link
  * OwnFileSource.FileSourceBuilder#withFileSystem(S3FileSystemSettings)} makes a single source read
  * from a <i>different</i> S3 / MinIO endpoint without touching the global configuration. This is

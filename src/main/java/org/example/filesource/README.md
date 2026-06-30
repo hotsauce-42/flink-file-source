@@ -46,7 +46,7 @@ Since it does not make sense to adapt all classes for `modification time` in the
 
 ## Optional different S3 / MinIO client
 
-By default the `OwnFileSource` resolves files through Flink's globally initialised `FileSystem`, which is configured once per cluster. Sometimes a single source needs to read files from a *different* S3 / MinIO than the cluster default. For that case the builder accepts optional, serializable connection settings:
+By default, the `OwnFileSource` resolves files through Flink's globally initialised `FileSystem`, which is configured once per cluster. Sometimes a single source needs to read files from a *different* S3 / MinIO than the cluster default. For that case the builder accepts optional, serializable connection settings:
 
 ```java
 S3FileSystemSettings settings =
